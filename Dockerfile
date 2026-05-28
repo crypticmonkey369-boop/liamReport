@@ -14,7 +14,6 @@ RUN npm ci --only=production
 COPY public ./public
 COPY src ./src
 COPY server.js ./
-COPY tokens.json ./
 
 # Expose default HTTP server port
 EXPOSE 3000
