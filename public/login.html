@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Profit Reporter Management Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="flex-center">
+  <div class="login-container card">
+    <div class="card-glow"></div>
+    <div class="logo">
+      <span class="icon-lock">🔐</span>
+    </div>
+    <h1>Profit Reporter</h1>
+    <p class="subtitle">Enter portal password to access OAuth connections</p>
+    
+    <form id="login-form">
+      <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
+      </div>
+      
+      <div id="error-message" class="error-text hidden">Invalid portal password. Please try again.</div>
+      
+      <button type="submit" class="btn btn-primary">
+        <span>Verify Password</span>
+        <span class="arrow">→</span>
+      </button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-message');
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ password })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          window.location.href = '/index.html';
+        } else {
+          errorMsg.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('Error logging in:', err);
+        alert('An unexpected error occurred. Please try again.');
+      }
+    });
+  </script>
+</body>
+</html>

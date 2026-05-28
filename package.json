@@ -1,0 +1,24 @@
+{
+  "name": "oauth-profit-reporter",
+  "version": "1.0.0",
+  "description": "Headless Multi-Platform Financial Reporter (Service Account Edition)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node src/test-calculations.js",
+    "report": "node src/reporter.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^134.0.0",
+    "luxon": "^3.4.4",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^6.9.13"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

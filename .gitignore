@@ -1,0 +1,10 @@
+node_modules/
+.env
+tokens.json
+service-account-key.json
+.DS_Store
+.idea/
+.vscode/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

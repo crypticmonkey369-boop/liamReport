@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OAuth Connections - Profit Reporter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <header class="dashboard-header">
+      <div>
+        <h1>OAuth Account Manager</h1>
+        <p class="subtitle">Zero-maintenance OAuth integration & Daily Profit Reporter status panel</p>
+      </div>
+      <button id="logout-btn" class="btn btn-secondary">Logout</button>
+    </header>
+
+    <div class="grid">
+      <!-- Google Account OAuth Card -->
+      <div class="card status-card" id="card-google">
+        <div class="card-glow"></div>
+        <div class="card-header">
+          <div class="platform-icon">🔑</div>
+          <h2>Google Account</h2>
+          <span class="status-badge disconnected" id="status-google">Disconnected</span>
+        </div>
+        <p class="card-desc">Required to write reports to Google Sheets and dispatch confirmation emails via the Gmail API.</p>
+        <div class="card-actions">
+          <button class="btn btn-primary" onclick="connectGoogle()">Connect Google Account</button>
+        </div>
+      </div>
+
+      <!-- Shopify OAuth Card -->
+      <div class="card status-card" id="card-shopify">
+        <div class="card-glow"></div>
+        <div class="card-header">
+          <div class="platform-icon">🛍️</div>
+          <h2>Shopify</h2>
+          <span class="status-badge disconnected" id="status-shopify">Disconnected</span>
+        </div>
+        <p class="card-desc">Required to fetch daily order volumes, gross revenue, net sales, refund lines, and customer shipping amounts.</p>
+        <div class="shop-input-group">
+          <label for="shop-domain">Shop Domain</label>
+          <input type="text" id="shop-domain" placeholder="mystore.myshopify.com">
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-primary" onclick="connectShopify()">Connect Shopify</button>
+        </div>
+      </div>
+
+      <!-- Meta Ads OAuth Card -->
+      <div class="card status-card" id="card-meta">
+        <div class="card-glow"></div>
+        <div class="card-header">
+          <div class="platform-icon">🎯</div>
+          <h2>Meta Ads</h2>
+          <span class="status-badge disconnected" id="status-meta">Disconnected</span>
+        </div>
+        <p class="card-desc">Required to pull daily advertising spend. Can be bypassed if a permanent Meta System User Token is set in Google Sheets.</p>
+        <div class="card-actions">
+          <button class="btn btn-primary" id="btn-connect-meta" onclick="connectMeta()">Connect Meta Ads</button>
+        </div>
+      </div>
+
+      <!-- Klaviyo OAuth Card -->
+      <div class="card status-card" id="card-klaviyo">
+        <div class="card-glow"></div>
+        <div class="card-header">
+          <div class="platform-icon">✉️</div>
+          <h2>Klaviyo</h2>
+          <span class="status-badge disconnected" id="status-klaviyo">Disconnected</span>
+        </div>
+        <p class="card-desc">Required to pull customer messaging and subscriber growth metrics to compile marketing profiles.</p>
+        <div class="card-actions">
+          <button class="btn btn-primary" onclick="connectKlaviyo()">Connect Klaviyo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Execution / Operations Center -->
+    <div class="card operations-card">
+      <div class="card-glow"></div>
+      <h2>Operations Console</h2>
+      <p class="subtitle">Manually trigger reporting operations and check configuration values.</p>
+      
+      <div class="ops-grid">
+        <div class="ops-action-card">
+          <h3>Daily Profit Run</h3>
+          <p>Triggers the automated calculations, updates Google Sheet tabs, and sends the email report for the previous calendar day.</p>
+          <button class="btn btn-secondary" onclick="triggerReport('yesterday')">Run Report (Yesterday)</button>
+        </div>
+        
+        <div class="ops-action-card">
+          <h3>Custom Date Run</h3>
+          <p>Trigger reporting for a specific past date. Useful for backfilling missing records.</p>
+          <div class="flex-row">
+            <input type="date" id="custom-date" class="date-input">
+            <button class="btn btn-secondary" onclick="triggerReport('custom')">Run for Date</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="ops-log-container" class="ops-logs hidden">
+        <h4>Execution Log</h4>
+        <pre id="ops-log">Starting execution...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let oauthWindow = null;
+
+    // Helper to open standard centered popup window for OAuth loops
+    function openOAuthPopup(url) {
+      if (oauthWindow && !oauthWindow.closed) {
+        oauthWindow.focus();
+        return;
+      }
+      const width = 600;
+      const height = 650;
+      const left = window.screenX + (window.innerWidth - width) / 2;
+      const top = window.screenY + (window.innerHeight - height) / 2;
+      
+      oauthWindow = window.open(
+        url, 
+        'oauthPopup', 
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,status=yes`
+      );
+    }
+
+    // Listen for completion messages sent by popup window script
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'oauth-success') {
+        console.log(`Successfully completed OAuth loop for platform: ${event.data.platform}`);
+        loadStatus();
+      }
+    });
+
+    // Fetch and display active oauth connection states
+    async function loadStatus() {
+      try {
+        const response = await fetch('/api/status');
+        if (response.status === 401) {
+          window.location.href = '/login.html';
+          return;
+        }
+        const data = await response.json();
+        
+        // Google Status
+        updateBadge('status-google', data.google.connected, data.google.email);
+        
+        // Shopify Status
+        updateBadge('status-shopify', data.shopify.connected, data.shopify.shop);
+        if (data.shopify.shop) {
+          document.getElementById('shop-domain').value = data.shopify.shop;
+        }
+
+        // Meta Status
+        if (data.meta.systemTokenConfigured) {
+          const badge = document.getElementById('status-meta');
+          badge.textContent = 'Connected (System Token)';
+          badge.className = 'status-badge system-token';
+          document.getElementById('btn-connect-meta').disabled = true;
+          document.getElementById('btn-connect-meta').textContent = 'System User Active';
+        } else {
+          updateBadge('status-meta', data.meta.connected);
+          document.getElementById('btn-connect-meta').disabled = false;
+          document.getElementById('btn-connect-meta').textContent = 'Connect Meta Ads';
+        }
+
+        // Klaviyo Status
+        updateBadge('status-klaviyo', data.klaviyo.connected);
+      } catch (err) {
+        console.error('Error fetching connection states:', err);
+      }
+    }
+
+    function updateBadge(id, isConnected, detail = null) {
+      const badge = document.getElementById(id);
+      if (isConnected) {
+        badge.textContent = detail ? `Connected (${detail})` : 'Connected';
+        badge.className = 'status-badge connected';
+      } else {
+        badge.textContent = 'Disconnected';
+        badge.className = 'status-badge disconnected';
+      }
+    }
+
+    // Connect trigger actions using centered popups
+    function connectGoogle() {
+      openOAuthPopup('/oauth/google');
+    }
+
+    function connectShopify() {
+      const shop = document.getElementById('shop-domain').value.trim();
+      if (!shop) {
+        alert('Please enter your Shopify Shop Domain (e.g. store.myshopify.com)');
+        return;
+      }
+      openOAuthPopup(`/oauth/shopify?shop=${encodeURIComponent(shop)}`);
+    }
+
+    function connectMeta() {
+      openOAuthPopup('/oauth/meta');
+    }
+
+    function connectKlaviyo() {
+      openOAuthPopup('/oauth/klaviyo');
+    }
+
+    // Trigger report runs
+    async function triggerReport(type) {
+      const logContainer = document.getElementById('ops-log-container');
+      const logEl = document.getElementById('ops-log');
+      
+      let date = null;
+      if (type === 'custom') {
+        date = document.getElementById('custom-date').value;
+        if (!date) {
+          alert('Please select a date first.');
+          return;
+        }
+      }
+
+      logContainer.classList.remove('hidden');
+      logEl.textContent = 'Contacting server and fetching data... This can take 15-30 seconds...';
+
+      try {
+        const body = { type };
+        if (date) body.date = date;
+
+        const response = await fetch('/api/trigger-report', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          logEl.textContent = `Success!\n\nDetails:\n` + JSON.stringify(result.data, null, 2);
+        } else {
+          logEl.textContent = `Execution Failed!\n\nError:\n${result.error}\n\nStack:\n${result.details || ''}`;
+        }
+      } catch (err) {
+        logEl.textContent = `Network error calling executor: ${err.message}`;
+      }
+    }
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    });
+
+    // Run status check on load
+    loadStatus();
+  </script>
+</body>
+</html>
