@@ -16,14 +16,14 @@ function assert(condition, message) {
   }
 }
 
-function runTests() {
+async function runTests() {
   console.log('=== Running Profit Reporter Calculation Validation Suite ===\n');
 
   testFinancialCalculations();
-  testExpenseAmortizationDaily();
-  testExpenseAmortizationWeekly();
-  testExpenseAmortizationMonthlyLeapYear();
-  testExpenseAmortizationOneOff();
+  await testExpenseAmortizationDaily();
+  await testExpenseAmortizationWeekly();
+  await testExpenseAmortizationMonthlyLeapYear();
+  await testExpenseAmortizationOneOff();
   testZeroRevenueEdgeCase();
 
   console.log(`\n=== Test Results: ${testsPassed} Passed, ${testsFailed} Failed ===`);
@@ -81,7 +81,7 @@ function testFinancialCalculations() {
 }
 
 // 2. Test expense parser with "Daily" amortization
-function testExpenseAmortizationDaily() {
+async function testExpenseAmortizationDaily() {
   // Mock Google sheets client
   const mockSheets = {
     spreadsheets: {
@@ -100,18 +100,17 @@ function testExpenseAmortizationDaily() {
     }
   };
 
-  calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-15')
-    .then(expenses => {
-      // On 2026-05-15, only 'Daily SaaS' is active (expired SaaS is in April, future SaaS starts in June)
-      assert(expenses === 10.0, `Daily expense active logic: expected 10.0, got ${expenses}`);
-    })
-    .catch(err => {
-      assert(false, `Daily expense test failed with error: ${err.message}`);
-    });
+  try {
+    const expenses = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-15');
+    // On 2026-05-15, only 'Daily SaaS' is active (expired SaaS is in April, future SaaS starts in June)
+    assert(expenses === 10.0, `Daily expense active logic: expected 10.0, got ${expenses}`);
+  } catch (err) {
+    assert(false, `Daily expense test failed with error: ${err.message}`);
+  }
 }
 
 // 3. Test expense parser with "Weekly" amortization
-function testExpenseAmortizationWeekly() {
+async function testExpenseAmortizationWeekly() {
   const mockSheets = {
     spreadsheets: {
       values: {
@@ -127,18 +126,17 @@ function testExpenseAmortizationWeekly() {
     }
   };
 
-  calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-10')
-    .then(expenses => {
-      // Weekly = 700 / 7 = 100 per day
-      assert(expenses === 100.0, `Weekly expense calculation: expected 100.0, got ${expenses}`);
-    })
-    .catch(err => {
-      assert(false, `Weekly expense test failed with error: ${err.message}`);
-    });
+  try {
+    const expenses = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-10');
+    // Weekly = 700 / 7 = 100 per day
+    assert(expenses === 100.0, `Weekly expense calculation: expected 100.0, got ${expenses}`);
+  } catch (err) {
+    assert(false, `Weekly expense test failed with error: ${err.message}`);
+  }
 }
 
 // 4. Test expense parser with "Monthly" amortization & month day counting (Leap vs Non-Leap)
-function testExpenseAmortizationMonthlyLeapYear() {
+async function testExpenseAmortizationMonthlyLeapYear() {
   const mockSheets = {
     spreadsheets: {
       values: {
@@ -154,35 +152,28 @@ function testExpenseAmortizationMonthlyLeapYear() {
     }
   };
 
-  // Test Leap Year Feb (2024-02 has 29 days)
-  calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2024-02-15')
-    .then(expenses => {
-      const expected = 3100 / 29; // Feb 2024 has 29 days
-      assert(Math.abs(expenses - expected) < 0.0001, `Monthly leap year Feb expense (29 days): expected ${expected}, got ${expenses}`);
-    })
-    .then(() => {
-      // Test Non-Leap year Feb (2025-02 has 28 days)
-      return calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2025-02-15');
-    })
-    .then(expenses => {
-      const expected = 3100 / 28; // Feb 2025 has 28 days
-      assert(Math.abs(expenses - expected) < 0.0001, `Monthly non-leap year Feb expense (28 days): expected ${expected}, got ${expenses}`);
-    })
-    .then(() => {
-      // Test standard month (2026-05 has 31 days)
-      return calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-15');
-    })
-    .then(expenses => {
-      const expected = 3100 / 31; // May has 31 days
-      assert(Math.abs(expenses - expected) < 0.0001, `Monthly standard May expense (31 days): expected ${expected}, got ${expenses}`);
-    })
-    .catch(err => {
-      assert(false, `Monthly expense test failed with error: ${err.message}`);
-    });
+  try {
+    // Test Leap Year Feb (2024-02 has 29 days)
+    const expensesLeap = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2024-02-15');
+    const expectedLeap = 3100 / 29; // Feb 2024 has 29 days
+    assert(Math.abs(expensesLeap - expectedLeap) < 0.0001, `Monthly leap year Feb expense (29 days): expected ${expectedLeap}, got ${expensesLeap}`);
+
+    // Test Non-Leap year Feb (2025-02 has 28 days)
+    const expensesNonLeap = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2025-02-15');
+    const expectedNonLeap = 3100 / 28; // Feb 2025 has 28 days
+    assert(Math.abs(expensesNonLeap - expectedNonLeap) < 0.0001, `Monthly non-leap year Feb expense (28 days): expected ${expectedNonLeap}, got ${expensesNonLeap}`);
+
+    // Test standard month (2026-05 has 31 days)
+    const expensesStandard = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-15');
+    const expectedStandard = 3100 / 31; // May has 31 days
+    assert(Math.abs(expensesStandard - expectedStandard) < 0.0001, `Monthly standard May expense (31 days): expected ${expectedStandard}, got ${expensesStandard}`);
+  } catch (err) {
+    assert(false, `Monthly expense test failed with error: ${err.message}`);
+  }
 }
 
 // 5. Test expense parser with "One-off" amortization
-function testExpenseAmortizationOneOff() {
+async function testExpenseAmortizationOneOff() {
   const mockSheets = {
     spreadsheets: {
       values: {
@@ -198,21 +189,17 @@ function testExpenseAmortizationOneOff() {
     }
   };
 
-  // On matching day
-  calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-20')
-    .then(expenses => {
-      assert(expenses === 500.0, `One-off expense on matching date: expected 500.0, got ${expenses}`);
-    })
-    .then(() => {
-      // On non-matching day
-      return calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-21');
-    })
-    .then(expenses => {
-      assert(expenses === 0.0, `One-off expense on non-matching date: expected 0.0, got ${expenses}`);
-    })
-    .catch(err => {
-      assert(false, `One-off expense test failed with error: ${err.message}`);
-    });
+  try {
+    // On matching day
+    const expensesMatch = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-20');
+    assert(expensesMatch === 500.0, `One-off expense on matching date: expected 500.0, got ${expensesMatch}`);
+
+    // On non-matching day
+    const expensesMismatch = await calculateExpensesForDate(mockSheets, 'spreadsheet_id', '2026-05-21');
+    assert(expensesMismatch === 0.0, `One-off expense on non-matching date: expected 0.0, got ${expensesMismatch}`);
+  } catch (err) {
+    assert(false, `One-off expense test failed with error: ${err.message}`);
+  }
 }
 
 // 6. Test edge case: Zero Adjusted Revenue

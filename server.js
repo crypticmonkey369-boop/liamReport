@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { google } = require('googleapis');
-const { runReportForDate } = require('./src/reporter');
+const { runReportForDate, runMonthlyReportForMonth } = require('./src/reporter');
 const { getGoogleAuthClient } = require('./src/config-sheet');
 const { DateTime } = require('luxon');
 
@@ -693,6 +693,20 @@ cron.schedule('55 23 * * *', async () => {
     console.log(`[SCHEDULER] Profit report for ${targetDateStr} completed successfully.`);
   } else {
     console.error(`[SCHEDULER] Profit report for ${targetDateStr} failed:`, result.error);
+  }
+}, {
+  scheduled: true,
+  timezone: 'Australia/Melbourne'
+});
+
+cron.schedule('0 6 1 * *', async () => {
+  const targetMonthStr = DateTime.now().setZone('Australia/Melbourne').minus({ months: 1 }).toFormat('yyyy-MM');
+  console.log(`[SCHEDULER] Triggering monthly profit report for ${targetMonthStr} at 6:00 AM Melbourne time...`);
+  const result = await runMonthlyReportForMonth(targetMonthStr);
+  if (result.success) {
+    console.log(`[SCHEDULER] Monthly profit report for ${targetMonthStr} completed successfully.`);
+  } else {
+    console.error(`[SCHEDULER] Monthly profit report for ${targetMonthStr} failed:`, result.error);
   }
 }, {
   scheduled: true,
