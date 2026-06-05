@@ -211,10 +211,14 @@ async function createSysTokensTab(sheets, spreadsheetId) {
 app.get('/api/status', requireAuth, async (req, res) => {
   const tokens = readTokens();
   
+  const hasRealGoogleOAuth = tokens.google && tokens.google.refresh_token && !tokens.google.refresh_token.startsWith('mock_');
+  const hasRealGoogleSA = (process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock')) ||
+                          (fs.existsSync(path.join(__dirname, 'service-account-key.json')));
+
   const status = {
     google: {
-      connected: !!(tokens.google && tokens.google.refresh_token),
-      email: tokens.google && tokens.google.refresh_token ? 'Connected Account' : null
+      connected: !!(hasRealGoogleOAuth || hasRealGoogleSA),
+      email: hasRealGoogleOAuth ? 'OAuth Account' : (hasRealGoogleSA ? 'Service Account' : null)
     },
     shopify: {
       connected: !!(tokens.shopify && tokens.shopify.access_token),
