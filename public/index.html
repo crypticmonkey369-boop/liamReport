@@ -20,17 +20,17 @@
     </header>
 
     <div class="grid">
-      <!-- Google Account OAuth Card -->
+      <!-- Google Sheet Connection Card -->
       <div class="card status-card" id="card-google">
         <div class="card-glow"></div>
         <div class="card-header">
           <div class="platform-icon">🔑</div>
-          <h2>Google Account</h2>
-          <span class="status-badge disconnected" id="status-google">Disconnected</span>
+          <h2>Google Sheet</h2>
+          <span class="status-badge disconnected" id="status-google">Checking Connection...</span>
         </div>
-        <p class="card-desc">Required to write reports to Google Sheets and dispatch confirmation emails via the Gmail API.</p>
-        <div class="card-actions">
-          <button class="btn btn-primary" onclick="connectGoogle()">Connect Google Account</button>
+        <p class="card-desc">Permanently bound via backend Service Account key to write Daily Logs and fetch configuration settings.</p>
+        <div class="card-actions" style="display: flex; justify-content: center; align-items: center; min-height: 42px;">
+          <span style="font-size: 0.85rem; color: #9ca3af; font-weight: 500;">🔒 Secured Silent Background Sync</span>
         </div>
       </div>
 
