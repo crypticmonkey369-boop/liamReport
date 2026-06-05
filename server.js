@@ -250,27 +250,8 @@ app.get('/api/status', requireAuth, async (req, res) => {
   const isMockGoogle = !status.google.connected && (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID.startsWith('mock_'));
   if (!isMockGoogle && status.google.connected && process.env.GOOGLE_SHEET_ID && process.env.GOOGLE_SHEET_ID !== 'mock_google_sheet_id') {
     try {
-      let oauth2Client;
-      const googleRedirect = getRedirectUri(req, 'google');
-      if (tokens.google && tokens.google.refresh_token) {
-        oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-          googleRedirect
-        );
-        oauth2Client.setCredentials({
-          refresh_token: tokens.google.refresh_token,
-          access_token: tokens.google.access_token
-        });
-      } else {
-        oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-          googleRedirect
-        );
-        oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-      }
-      const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+      const googleAuthClient = getGoogleAuthClient();
+      const sheets = google.sheets({ version: 'v4', auth: googleAuthClient });
       
       const configResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: process.env.GOOGLE_SHEET_ID,
@@ -285,7 +266,10 @@ app.get('/api/status', requireAuth, async (req, res) => {
             configMap[row[0].trim()] = row[1].trim();
           }
         }
-        if (configMap['Meta System User Token'] || configMap['meta_system_user_token']) {
+        if (configMap['Meta System User Token'] || 
+            configMap['meta_system_user_token'] || 
+            configMap['Meta Access Token'] || 
+            configMap['meta_access_token']) {
           status.meta.systemTokenConfigured = true;
         }
       }
