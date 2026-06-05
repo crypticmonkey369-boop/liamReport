@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { google } = require('googleapis');
 const axios = require('axios');
 const fs = require('fs');
@@ -55,7 +56,8 @@ async function sendEmail({ toEmail, subject, textBody, authClient }) {
 
   const tokens = fs.existsSync(TOKENS_PATH) ? JSON.parse(fs.readFileSync(TOKENS_PATH, 'utf8')) : {};
   const hasRealGoogleOAuth = tokens.google && tokens.google.refresh_token && !tokens.google.refresh_token.startsWith('mock_');
-  const hasRealGoogleSA = process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock');
+  const hasRealGoogleSA = (process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock')) ||
+                          (fs.existsSync(path.join(__dirname, '../service-account-key.json')));
   const isMock = !hasRealGoogleOAuth && !hasRealGoogleSA;
 
   if (isMock) {
@@ -324,7 +326,8 @@ async function runReportForDate(targetDateStr) {
   let clientEmail = process.env.REPORT_EMAIL || 'client@example.com';
   const tokens = fs.existsSync(TOKENS_PATH) ? JSON.parse(fs.readFileSync(TOKENS_PATH, 'utf8')) : {};
   const hasRealGoogleOAuth = tokens.google && tokens.google.refresh_token && !tokens.google.refresh_token.startsWith('mock_');
-  const hasRealGoogleSA = process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock');
+  const hasRealGoogleSA = (process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock')) ||
+                          (fs.existsSync(path.join(__dirname, '../service-account-key.json')));
   const isMockGoogle = !hasRealGoogleOAuth && !hasRealGoogleSA;
   
   try {
@@ -372,8 +375,8 @@ async function runReportForDate(targetDateStr) {
     const adAccountId = configValues.meta_ad_account_id || process.env.META_AD_ACCOUNT_ID || configValues['Meta Ad Account ID'];
 
     // Resolve Shopify Credentials
-    let shopDomain = 'mock-store.myshopify.com';
-    let shopifyToken = 'mock_shopify_token';
+    let shopDomain = configValues.shopify_store_url || 'mock-store.myshopify.com';
+    let shopifyToken = configValues.shopify_api_token || 'mock_shopify_token';
     
     if (fs.existsSync(TOKENS_PATH)) {
       const tokens = JSON.parse(fs.readFileSync(TOKENS_PATH, 'utf8'));
@@ -393,7 +396,7 @@ async function runReportForDate(targetDateStr) {
       await scrapeKlaviyoMetrics(klaviyoToken);
     } catch (klaviyoErr) {
       console.warn(`[REPORT RUN WARNING] Klaviyo Integration bypassed or failed: ${klaviyoErr.message}`);
-      throw klaviyoErr;
+      // Klaviyo is non-blocking as it does not contribute to financials or sheet logging
     }
 
     // Fetch Shopify transactions
@@ -516,7 +519,8 @@ async function runMonthlyReportForMonth(yearMonthStr) {
   let clientEmail = process.env.REPORT_EMAIL || 'client@example.com';
   const tokens = fs.existsSync(TOKENS_PATH) ? JSON.parse(fs.readFileSync(TOKENS_PATH, 'utf8')) : {};
   const hasRealGoogleOAuth = tokens.google && tokens.google.refresh_token && !tokens.google.refresh_token.startsWith('mock_');
-  const hasRealGoogleSA = process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock');
+  const hasRealGoogleSA = (process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON.includes('mock')) ||
+                          (fs.existsSync(path.join(__dirname, '../service-account-key.json')));
   const isMockGoogle = !hasRealGoogleOAuth && !hasRealGoogleSA;
   
   try {
@@ -573,8 +577,8 @@ async function runMonthlyReportForMonth(yearMonthStr) {
     const adAccountId = configValues.meta_ad_account_id || process.env.META_AD_ACCOUNT_ID || configValues['Meta Ad Account ID'];
 
     // Resolve Shopify Credentials
-    let shopDomain = 'mock-store.myshopify.com';
-    let shopifyToken = 'mock_shopify_token';
+    let shopDomain = configValues.shopify_store_url || 'mock-store.myshopify.com';
+    let shopifyToken = configValues.shopify_api_token || 'mock_shopify_token';
     if (fs.existsSync(TOKENS_PATH)) {
       const tokens = JSON.parse(fs.readFileSync(TOKENS_PATH, 'utf8'));
       if (tokens.shopify && tokens.shopify.shop) shopDomain = tokens.shopify.shop;
@@ -593,7 +597,7 @@ async function runMonthlyReportForMonth(yearMonthStr) {
       await scrapeKlaviyoMetrics(klaviyoToken);
     } catch (klaviyoErr) {
       console.warn(`[MONTHLY REPORT WARNING] Klaviyo Integration failed: ${klaviyoErr.message}`);
-      throw klaviyoErr;
+      // Klaviyo is non-blocking as it does not contribute to financials or sheet logging
     }
 
     // Fetch Shopify details

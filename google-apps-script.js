@@ -67,22 +67,34 @@ function loadConfig() {
     }
   }
   
-  // Validation
-  const required = [
+  // Validation of standard required pricing keys
+  const requiredPricing = [
     'Avg COGS per Order', 
     'Avg Shipping Cost', 
     'Payment Fee Percent', 
     'Per-Order Fee', 
-    'Report Email',
-    'Shopify Shop Domain',
-    'Shopify Access Token'
+    'Report Email'
   ];
   
-  for (let key of required) {
+  for (let key of requiredPricing) {
     if (config[key] === undefined || config[key] === "") {
       throw new Error(`Config key "${key}" is missing in your sheet Config tab.`);
     }
   }
+
+  // Resolve Aliases for Shopify settings
+  const shopifyShopRaw = config['Shopify Store URL'] || config['Shopify Shop Domain'];
+  const shopifyToken = config['Shopify API Token'] || config['Shopify Access Token'];
+  
+  if (!shopifyShopRaw || !shopifyToken) {
+    throw new Error('Shopify connection parameters ("Shopify Store URL" and "Shopify API Token") are missing in the Config tab.');
+  }
+  
+  const shopifyShop = shopifyShopRaw.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  
+  // Resolve Aliases for Meta settings
+  const metaToken = config['Meta System User Token'] || config['Meta Access Token'] || '';
+  const metaAdAccountId = config['Meta Ad Account ID'] || '';
   
   return {
     cogsMultiplier: parseFloat(config['Avg COGS per Order']),
@@ -90,10 +102,10 @@ function loadConfig() {
     gatePercent: parseFloat(config['Payment Fee Percent']) / 100.0,
     perOrderFlatFee: parseFloat(config['Per-Order Fee']),
     reportEmail: config['Report Email'],
-    shopifyShop: config['Shopify Shop Domain'].replace(/^https?:\/\//, '').replace(/\/$/, ''),
-    shopifyToken: config['Shopify Access Token'],
-    metaAdAccountId: config['Meta Ad Account ID'] || '',
-    metaToken: config['Meta System User Token'] || ''
+    shopifyShop: shopifyShop,
+    shopifyToken: shopifyToken,
+    metaAdAccountId: metaAdAccountId,
+    metaToken: metaToken
   };
 }
 

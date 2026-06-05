@@ -121,7 +121,10 @@ async function fetchConfig(sheets, spreadsheetId) {
     current_gate_percent: parseFloat(config['Payment Fee Percent']) / 100.0, // e.g., 2.9 becomes 0.029
     current_per_order_flat_fee: parseFloat(config['Per-Order Fee']),
     report_email: config['Report Email'],
-    meta_system_user_token: config['Meta System User Token'] || null
+    meta_system_user_token: config['Meta System User Token'] || config['Meta Access Token'] || null,
+    meta_ad_account_id: config['Meta Ad Account ID'] || null,
+    shopify_store_url: config['Shopify Store URL'] || config['Shopify Shop Domain'] || null,
+    shopify_api_token: config['Shopify API Token'] || config['Shopify Access Token'] || null
   };
 }
 
