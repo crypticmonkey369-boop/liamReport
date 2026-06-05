@@ -18,6 +18,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.COOKIE_SECRET || 'fallback-cookie-secret'));
 
+// Dynamic Redirect URI Helper
+function getRedirectUri(req, platform) {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const envKey = `${platform.toUpperCase()}_REDIRECT_URI`;
+  if (process.env[envKey] && 
+      !process.env[envKey].includes('<your-render-subdomain>') && 
+      !process.env[envKey].includes('localhost') && 
+      process.env[envKey].startsWith('http')) {
+    return process.env[envKey];
+  }
+  return `${protocol}://${req.get('host')}/oauth/callback/${platform}`;
+}
+
 // Route protection middleware (Authentication Gate)
 function requireAuth(req, res, next) {
   if (req.signedCookies && req.signedCookies.auth === 'true') {
@@ -238,11 +251,12 @@ app.get('/api/status', requireAuth, async (req, res) => {
   if (!isMockGoogle && status.google.connected && process.env.GOOGLE_SHEET_ID && process.env.GOOGLE_SHEET_ID !== 'mock_google_sheet_id') {
     try {
       let oauth2Client;
+      const googleRedirect = getRedirectUri(req, 'google');
       if (tokens.google && tokens.google.refresh_token) {
         oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
           process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/google`
+          googleRedirect
         );
         oauth2Client.setCredentials({
           refresh_token: tokens.google.refresh_token,
@@ -252,7 +266,7 @@ app.get('/api/status', requireAuth, async (req, res) => {
         oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
           process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/google`
+          googleRedirect
         );
         oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
       }
@@ -318,8 +332,8 @@ app.get('/oauth/shopify', requireAuth, (req, res) => {
     shop = `${shop}.myshopify.com`;
   }
 
+  const redirectUri = getRedirectUri(req, 'shopify');
   if (process.env.OAUTH_PROXY_URL) {
-    const redirectUri = process.env.SHOPIFY_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/shopify`;
     return res.redirect(`${process.env.OAUTH_PROXY_URL}/shopify?shop=${encodeURIComponent(shop)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
@@ -343,7 +357,6 @@ app.get('/oauth/shopify', requireAuth, (req, res) => {
   }
 
   const clientId = process.env.SHOPIFY_CLIENT_ID;
-  const redirectUri = process.env.SHOPIFY_REDIRECT_URI;
   const scopes = 'read_orders';
   
   const authUrl = `https://${shop}/admin/oauth/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${shop}`;
@@ -392,8 +405,8 @@ app.get('/oauth/callback/shopify', async (req, res) => {
    META ADS OAUTH & MOCK ROUTES
    ========================================================================== */
 app.get('/oauth/meta', requireAuth, (req, res) => {
+  const redirectUri = getRedirectUri(req, 'meta');
   if (process.env.OAUTH_PROXY_URL) {
-    const redirectUri = process.env.META_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/meta`;
     return res.redirect(`${process.env.OAUTH_PROXY_URL}/meta?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
@@ -417,7 +430,6 @@ app.get('/oauth/meta', requireAuth, (req, res) => {
   }
 
   const clientId = process.env.META_CLIENT_ID;
-  const redirectUri = process.env.META_REDIRECT_URI;
   const scopes = 'ads_read,read_insights';
   
   const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code`;
@@ -440,7 +452,7 @@ app.get('/oauth/callback/meta', async (req, res) => {
       } else {
         const clientId = process.env.META_CLIENT_ID;
         const clientSecret = process.env.META_CLIENT_SECRET;
-        const redirectUri = process.env.META_REDIRECT_URI;
+        const redirectUri = getRedirectUri(req, 'meta');
 
         const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token`;
         const response = await axios.get(tokenUrl, {
@@ -486,8 +498,8 @@ app.get('/oauth/callback/meta', async (req, res) => {
    KLAVIYO OAUTH & MOCK ROUTES
    ========================================================================== */
 app.get('/oauth/klaviyo', requireAuth, (req, res) => {
+  const redirectUri = getRedirectUri(req, 'klaviyo');
   if (process.env.OAUTH_PROXY_URL) {
-    const redirectUri = process.env.KLAVIYO_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/klaviyo`;
     return res.redirect(`${process.env.OAUTH_PROXY_URL}/klaviyo?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
@@ -511,7 +523,6 @@ app.get('/oauth/klaviyo', requireAuth, (req, res) => {
   }
 
   const clientId = process.env.KLAVIYO_CLIENT_ID;
-  const redirectUri = process.env.KLAVIYO_REDIRECT_URI;
   const scopes = 'accounts:read metrics:read';
   
   const authUrl = `https://www.klaviyo.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&state=klaviyo`;
@@ -536,7 +547,7 @@ app.get('/oauth/callback/klaviyo', async (req, res) => {
       } else {
         const clientId = process.env.KLAVIYO_CLIENT_ID;
         const clientSecret = process.env.KLAVIYO_CLIENT_SECRET;
-        const redirectUri = process.env.KLAVIYO_REDIRECT_URI;
+        const redirectUri = getRedirectUri(req, 'klaviyo');
 
         const tokenUrl = `https://a.klaviyo.com/oauth/token`;
         
@@ -578,8 +589,8 @@ app.get('/oauth/callback/klaviyo', async (req, res) => {
    GOOGLE OAUTH & MOCK ROUTES
    ========================================================================== */
 app.get('/oauth/google', requireAuth, (req, res) => {
+  const redirectUri = getRedirectUri(req, 'google');
   if (process.env.OAUTH_PROXY_URL) {
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/google`;
     return res.redirect(`${process.env.OAUTH_PROXY_URL}/google?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
@@ -604,7 +615,7 @@ app.get('/oauth/google', requireAuth, (req, res) => {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/google`
+    redirectUri
   );
 
   const scopes = [
@@ -639,7 +650,7 @@ app.get('/oauth/callback/google', async (req, res) => {
         const oauth2Client = new google.auth.OAuth2(
           process.env.GOOGLE_CLIENT_ID,
           process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI || `http://localhost:${PORT}/oauth/callback/google`
+          getRedirectUri(req, 'google')
         );
         const { tokens } = await oauth2Client.getToken(code);
         accessToken = tokens.access_token;
